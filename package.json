@@ -1,0 +1,14 @@
+{
+  "name": "yeetcode-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fetch:problems": "node scripts/fetch-problems.mjs",
+    "fetch:content": "node scripts/fetch-content.mjs",
+    "build:db": "node scripts/build-db.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0"
+  }
+}

@@ -1,19 +1,15 @@
 // Dumps the SQLite database to static JSON for the GitHub Pages build.
 //
-// The committed bundles deliberately omit problems.content_html: the
-// descriptions are LeetCode's prose and this output lives in a public repo.
-// Everything committed here is either NeetCode's MIT-licensed solution code or
-// short factual metadata.
-//
-// Descriptions are written separately to content.json, which is gitignored.
-// It exists so local dev renders the real descriptions; because it is never
-// committed, CI builds from a clean checkout without it and the published site
-// falls back to linking out to leetcode.com.
+// Solution code is NeetCode's, MIT licensed (see THIRD-PARTY-LICENSES.txt).
+// Descriptions in content.json are LeetCode's copyrighted prose; publishing
+// them was an explicit call by the repo owner on 2026-09-03. content.json is
+// kept a separate file precisely so that decision stays reversible: gitignore
+// it again and the site falls back to linking out, with no code change.
 //
 //   node scripts/export-static.mjs
 //   -> web/public/data/meta.json
 //      web/public/data/lang-<language>.json
-//      web/public/data/content.json   (gitignored, local only)
+//      web/public/data/content.json
 import Database from "better-sqlite3";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -121,10 +117,10 @@ for (const [language, rounds] of byLanguage) {
   );
 }
 console.log(`\n${rows.length} rounds across ${byLanguage.size} languages`);
-console.log(`${(total / 1048576).toFixed(2)} MB committed (descriptions excluded)`);
+console.log(`${(total / 1048576).toFixed(2)} MB of solution bundles`);
 
-// Descriptions, for local dev only. Keyed by problem id, limited to problems
-// that actually appear in a bundle.
+// Descriptions, keyed by problem id, limited to problems that appear in a
+// bundle. Loaded lazily by the client and cached for the session.
 const exported = new Set(rows.map((r) => r.id));
 const content = {};
 for (const r of db
@@ -136,5 +132,5 @@ const contentJson = JSON.stringify(content);
 writeFileSync(path.join(OUT_DIR, "content.json"), contentJson);
 console.log(
   `content.json: ${Object.keys(content).length} descriptions, ` +
-    `${(contentJson.length / 1048576).toFixed(2)} MB (gitignored, not published)`
+    `${(contentJson.length / 1048576).toFixed(2)} MB`
 );

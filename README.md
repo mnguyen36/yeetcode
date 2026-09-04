@@ -30,8 +30,10 @@ cd web && npm run build  # -> web/out/  (next.config.ts sets output: "export")
 ```
 
 `web/public/data/` **is committed** (the database is not), so CI can build
-without the pipeline. The export deliberately omits `content_html`; the
-trainer links to leetcode.com for descriptions instead.
+without the pipeline. Descriptions live in a separate `content.json` (~1.1 MB,
+lazily loaded) so that publishing them stays a one-line decision: gitignore
+that file and the trainer falls back to linking out to leetcode.com, with no
+code change.
 
 `.github/workflows/pages.yml` deploys `web/out` to Pages. It is
 `workflow_dispatch`-only on purpose — arm it by adding a `push` trigger.
@@ -76,9 +78,10 @@ npm run build:db         # -> data/yeetcode.db (idempotent, run after any fetch)
   javascript, typescript, java, kotlin, cpp, c, csharp, go, rust, swift, ruby,
   scala, dart.
 - `data/raw/` is disposable cache; the DB is rebuilt from it deterministically.
-- LeetCode problem descriptions are copyrighted by LeetCode. They are stored
-  locally in `data/yeetcode.db` for development but are **excluded from the
-  static export**, so nothing published to Pages contains them — the trainer
-  links out to the original problem instead.
+- LeetCode problem descriptions are copyrighted by LeetCode. They are
+  published as part of the static site (`web/public/data/content.json`) — a
+  deliberate call, not an accident. To stop publishing them, add that path to
+  `.gitignore` and redeploy; the trainer already handles their absence by
+  linking to the original problem.
 - Attribution for the redistributed solution code is in
   `THIRD-PARTY-LICENSES.txt` (neetcode-gh, MIT).

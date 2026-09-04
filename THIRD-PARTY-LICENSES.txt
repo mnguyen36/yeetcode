@@ -25,7 +25,8 @@ SOFTWARE.
 The above MIT license covers the solution source code in web/public/data/,
 which is derived from https://github.com/neetcode-gh/leetcode.
 
-Problem titles, slugs, difficulties, topic tags and example testcases are
-factual metadata about problems published on leetcode.com. LeetCode problem
-descriptions are NOT redistributed by this project; the trainer links to
-leetcode.com instead.
+Problem titles, slugs, difficulties, topic tags, example testcases and
+problem descriptions originate from leetcode.com and are reproduced here for
+reference alongside each solution. The descriptions in
+web/public/data/content.json remain the copyright of LeetCode; they are not
+covered by the MIT license above. Contact the repository owner for removal.

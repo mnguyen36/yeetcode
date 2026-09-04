@@ -105,9 +105,10 @@ export async function problemRound(opts: {
   return rounds.find((r) => r.id === opts.id) ?? null;
 }
 
-// Problem descriptions, present only when content.json was exported locally.
-// It is gitignored, so on the published site this 404s and callers fall back
-// to linking out to leetcode.com. Absence is the expected case, not an error.
+// Problem descriptions. ~1.1 MB, so it loads lazily on the first request and
+// is cached for the session. A missing content.json is treated as "no
+// descriptions" rather than an error: dropping the file from the build is the
+// supported way to revert to linking out to leetcode.com.
 let contentPromise: Promise<Record<string, string> | null> | null = null;
 
 export function fetchDescription(id: number): Promise<string | null> {

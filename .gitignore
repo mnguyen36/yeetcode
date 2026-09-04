@@ -6,4 +6,3 @@ data/*.db-shm
 data/*.db-wal
 web/out/
 web/.next/
-web/public/data/content.json

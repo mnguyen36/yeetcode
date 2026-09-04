@@ -8,35 +8,15 @@ import {
   type RunnerEvent,
   type CaseResult,
 } from "@/lib/runner";
-
-type Testcase = { argsJson: string; expectedJson: string };
-
-type Round = {
-  id: number;
-  title: string;
-  slug: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  tags: string[];
-  language: string;
-  code: string;
-  content: string | null;
-  fnName: string | null;
-  runnable: boolean;
-  testcases: Testcase[];
-};
-
-type Listing = {
-  id: number;
-  title: string;
-  slug: string;
-  difficulty: Round["difficulty"];
-  runnable: boolean;
-};
-
-type Meta = {
-  languages: { language: string; problems: number }[];
-  difficulties: string[];
-};
+import {
+  fetchMeta,
+  listProblems,
+  problemRound,
+  randomRound,
+  type Listing,
+  type Meta,
+  type Round,
+} from "@/lib/data";
 
 type Status = "loading" | "ready" | "typing" | "done";
 
@@ -163,12 +143,8 @@ export default function Trainer() {
   const prefetchRef = useRef<{ key: string; round: Round } | null>(null);
 
   const prefetchNext = useCallback((lang: string, diff: string, excludeId: number) => {
-    const params = new URLSearchParams({ language: lang });
-    if (diff) params.set("difficulty", diff);
-    params.set("exclude", String(excludeId));
-    fetch(`/api/random?${params}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: Round | null) => {
+    randomRound({ language: lang, difficulty: diff || undefined, excludeId })
+      .then((data) => {
         if (data) prefetchRef.current = { key: `${lang}|${diff}`, round: data };
       })
       .catch(() => {});
@@ -195,31 +171,32 @@ export default function Trainer() {
       setStatus("loading");
       setError(null);
       setPickerOpen(false);
-      let url: string;
-      if (opts.problemId) {
-        url = `/api/problem?id=${opts.problemId}&language=${encodeURIComponent(opts.lang)}`;
-      } else {
-        const params = new URLSearchParams({ language: opts.lang });
-        if (opts.diff) params.set("difficulty", opts.diff);
-        if (opts.excludeId) params.set("exclude", String(opts.excludeId));
-        url = `/api/random?${params}`;
+      let data: Round | null;
+      try {
+        data = opts.problemId
+          ? await problemRound({ id: opts.problemId, language: opts.lang })
+          : await randomRound({
+              language: opts.lang,
+              difficulty: opts.diff || undefined,
+              excludeId: opts.excludeId,
+            });
+      } catch {
+        setRound(null);
+        setError("Something went wrong fetching a problem.");
+        return;
       }
-      const res = await fetch(url);
-      if (!res.ok) {
-        if (opts.problemId && res.status === 404) {
+      if (!data) {
+        if (opts.problemId) {
           // problem not available in this language -> fall back to a random one
           loadRound({ ...opts, problemId: undefined });
           return;
         }
         setRound(null);
         setError(
-          res.status === 404
-            ? "No problems match those filters. Loosen the difficulty or switch language."
-            : "Something went wrong fetching a problem."
+          "No problems match those filters. Loosen the difficulty or switch language."
         );
         return;
       }
-      const data: Round = await res.json();
       applyRound(data, opts.lang, opts.diff, opts.push);
     },
     [applyRound]
@@ -238,10 +215,11 @@ export default function Trainer() {
     setLanguage(lang);
     setDifficulty(diff);
     bootRef.current = { lang, diff, problemId: p.problemId };
-    fetch("/api/meta")
-      .then((r) => r.json())
+    fetchMeta()
       .then(setMeta)
-      .catch(() => setError("Could not load metadata. Is the database built?"));
+      .catch(() =>
+        setError("Could not load problem data. Run: npm run export:static")
+      );
   }, []);
 
   // keep the browse list warm so the picker opens with zero wait
@@ -250,14 +228,12 @@ export default function Trainer() {
     if (listCacheRef.current?.key === key) {
       return Promise.resolve(listCacheRef.current.items);
     }
-    const params = new URLSearchParams({ language: lang });
-    if (diff) params.set("difficulty", diff);
-    return fetch(`/api/problems?${params}`)
-      .then((r) => r.json())
-      .then((items: Listing[]) => {
+    return listProblems({ language: lang, difficulty: diff || undefined }).then(
+      (items) => {
         listCacheRef.current = { key, items };
         return items;
-      });
+      }
+    );
   }, []);
 
   const bootedRef = useRef(false);
@@ -754,17 +730,19 @@ export default function Trainer() {
               </div>
               {tab === "problem" ? (
                 <div className="p-5 pt-3 overflow-y-auto">
-                  {round.content ? (
-                    <div
-                      className="problem-body"
-                      dangerouslySetInnerHTML={{ __html: round.content }}
-                    />
-                  ) : (
-                    <p className="text-sm text-muted">
-                      No description stored for this one — go by the title, or hit{" "}
-                      <kbd className="font-mono text-ink">tab</kbd> for another problem.
-                    </p>
-                  )}
+                  <p className="text-sm text-muted">
+                    Descriptions aren&apos;t bundled — read this one on{" "}
+                    <a
+                      href={`https://leetcode.com/problems/${round.slug}/`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline hover:text-ink"
+                    >
+                      leetcode.com
+                    </a>
+                    , or go by the title and hit{" "}
+                    <kbd className="font-mono text-ink">tab</kbd> for another problem.
+                  </p>
                 </div>
               ) : (
                 testsView

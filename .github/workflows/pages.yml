@@ -1,0 +1,58 @@
+name: Deploy to GitHub Pages
+
+# Manual-only for now. To deploy automatically on every push to master, add:
+#   push:
+#     branches: [master]
+# Note: on the free plan this requires the repository to be public, and the
+# published site is public regardless of repository visibility.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      # Round data is committed under web/public/data (see scripts/export-static.mjs);
+      # the SQLite database itself is never checked in.
+      - name: Verify exported data is present
+        run: test -f public/data/meta.json || (echo "Missing public/data — run 'npm run export:static'" && exit 1)
+
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

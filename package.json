@@ -6,7 +6,8 @@
   "scripts": {
     "fetch:problems": "node scripts/fetch-problems.mjs",
     "fetch:content": "node scripts/fetch-content.mjs",
-    "build:db": "node scripts/build-db.mjs"
+    "build:db": "node scripts/build-db.mjs",
+    "export:static": "node scripts/export-static.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0"

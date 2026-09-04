@@ -9,6 +9,7 @@ import {
   type CaseResult,
 } from "@/lib/runner";
 import {
+  fetchDescription,
   fetchMeta,
   listProblems,
   problemRound,
@@ -84,6 +85,11 @@ export default function Trainer() {
   const [language, setLanguage] = useState("python");
   const [difficulty, setDifficulty] = useState("");
   const [round, setRound] = useState<Round | null>(null);
+  // Tagged with the round it belongs to, so a late response for a previous
+  // round is simply ignored at render time rather than reset on every change.
+  const [description, setDescription] = useState<{ id: number; html: string } | null>(
+    null
+  );
   const [mask, setMask] = useState<Uint8Array | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -203,6 +209,16 @@ export default function Trainer() {
   );
   const loadRoundRef = useRef(loadRound);
   loadRoundRef.current = loadRound;
+
+  // Descriptions load out of band: they're absent on the published site, so a
+  // round must never wait on them.
+  const roundId = round?.id;
+  useEffect(() => {
+    if (roundId === undefined) return;
+    fetchDescription(roundId).then((html) => {
+      if (html) setDescription({ id: roundId, html });
+    });
+  }, [roundId]);
 
   // boot: URL params win, then saved prefs
   const bootRef = useRef<{ lang: string; diff: string; problemId?: number } | null>(
@@ -730,19 +746,26 @@ export default function Trainer() {
               </div>
               {tab === "problem" ? (
                 <div className="p-5 pt-3 overflow-y-auto">
-                  <p className="text-sm text-muted">
-                    Descriptions aren&apos;t bundled — read this one on{" "}
-                    <a
-                      href={`https://leetcode.com/problems/${round.slug}/`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline hover:text-ink"
-                    >
-                      leetcode.com
-                    </a>
-                    , or go by the title and hit{" "}
-                    <kbd className="font-mono text-ink">tab</kbd> for another problem.
-                  </p>
+                  {description?.id === round.id ? (
+                    <div
+                      className="problem-body"
+                      dangerouslySetInnerHTML={{ __html: description.html }}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted">
+                      Descriptions aren&apos;t bundled — read this one on{" "}
+                      <a
+                        href={`https://leetcode.com/problems/${round.slug}/`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline hover:text-ink"
+                      >
+                        leetcode.com
+                      </a>
+                      , or go by the title and hit{" "}
+                      <kbd className="font-mono text-ink">tab</kbd> for another problem.
+                    </p>
+                  )}
                 </div>
               ) : (
                 testsView

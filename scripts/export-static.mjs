@@ -1,12 +1,19 @@
 // Dumps the SQLite database to static JSON for the GitHub Pages build.
 //
-// Deliberately omits problems.content_html: the descriptions are LeetCode's
-// prose and this output is committed to a public repo. Everything shipped here
-// is either NeetCode's MIT-licensed solution code or short factual metadata.
+// The committed bundles deliberately omit problems.content_html: the
+// descriptions are LeetCode's prose and this output lives in a public repo.
+// Everything committed here is either NeetCode's MIT-licensed solution code or
+// short factual metadata.
+//
+// Descriptions are written separately to content.json, which is gitignored.
+// It exists so local dev renders the real descriptions; because it is never
+// committed, CI builds from a clean checkout without it and the published site
+// falls back to linking out to leetcode.com.
 //
 //   node scripts/export-static.mjs
 //   -> web/public/data/meta.json
 //      web/public/data/lang-<language>.json
+//      web/public/data/content.json   (gitignored, local only)
 import Database from "better-sqlite3";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -114,4 +121,20 @@ for (const [language, rounds] of byLanguage) {
   );
 }
 console.log(`\n${rows.length} rounds across ${byLanguage.size} languages`);
-console.log(`${(total / 1048576).toFixed(2)} MB total (descriptions excluded)`);
+console.log(`${(total / 1048576).toFixed(2)} MB committed (descriptions excluded)`);
+
+// Descriptions, for local dev only. Keyed by problem id, limited to problems
+// that actually appear in a bundle.
+const exported = new Set(rows.map((r) => r.id));
+const content = {};
+for (const r of db
+  .prepare(`SELECT id, content_html FROM problems WHERE content_html IS NOT NULL`)
+  .all()) {
+  if (exported.has(r.id)) content[r.id] = r.content_html;
+}
+const contentJson = JSON.stringify(content);
+writeFileSync(path.join(OUT_DIR, "content.json"), contentJson);
+console.log(
+  `content.json: ${Object.keys(content).length} descriptions, ` +
+    `${(contentJson.length / 1048576).toFixed(2)} MB (gitignored, not published)`
+);

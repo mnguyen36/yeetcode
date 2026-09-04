@@ -104,3 +104,17 @@ export async function problemRound(opts: {
   const rounds = await loadLanguage(opts.language);
   return rounds.find((r) => r.id === opts.id) ?? null;
 }
+
+// Problem descriptions, present only when content.json was exported locally.
+// It is gitignored, so on the published site this 404s and callers fall back
+// to linking out to leetcode.com. Absence is the expected case, not an error.
+let contentPromise: Promise<Record<string, string> | null> | null = null;
+
+export function fetchDescription(id: number): Promise<string | null> {
+  if (!contentPromise) {
+    contentPromise = fetch(`${BASE}/data/content.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+  }
+  return contentPromise.then((map) => map?.[String(id)] ?? null);
+}

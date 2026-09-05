@@ -43,6 +43,43 @@ Two things to know before enabling it:
 - A Pages site is **public regardless of repository visibility**; access-controlled
   Pages requires GitHub Enterprise Cloud.
 
+## Backend (run history)
+
+Optional. Without it the trainer works exactly as before — `web/lib/history.ts`
+treats an unreachable API as "no history", which is why the static Pages build
+still works with no backend at all.
+
+- `web/lib/schema.sql` — one `runs` table, plus indexes
+- `web/lib/runs.ts` — queries via `pg`, so any Postgres works (Neon, Supabase,
+  Railway, self-hosted); nothing is provider-specific
+- `web/app/api/runs` — `POST` records a finished round, `GET` returns
+  per-problem or overall stats
+- Identity is an anonymous per-browser id in localStorage, stored in
+  `runs.user_key`. **Not** an account: clearing site data starts fresh, and the
+  endpoint is unauthenticated, so anyone can write runs under any key. Fine for
+  personal stats; a public leaderboard would need real auth first.
+
+```sh
+cd web
+DATABASE_URL='postgres://...' npm run db:migrate   # create the table
+npm run db:test                                    # runs the real SQL on PGlite, no DB needed
+```
+
+### Deploying the server build to Vercel
+
+1. Create a Postgres database (Neon's free tier is permanent and scale-to-zero).
+2. Import this repo on Vercel and set **Root Directory** to `web` — the Next app
+   is not at the repo root.
+3. Add `DATABASE_URL` as an environment variable. On Neon use the **pooled**
+   connection string (host contains `-pooler`) so serverless invocations don't
+   exhaust connections.
+4. Run `npm run db:migrate` once against that URL.
+
+Note Vercel's Hobby plan is restricted to non-commercial use.
+
+`STATIC_EXPORT=1` selects the Pages build instead; the Pages workflow sets it and
+deletes `app/api` first, because Next refuses to static-export a dynamic route.
+
 ## Data pipeline
 
 Everything lives in a single SQLite database at `data/yeetcode.db`, built from

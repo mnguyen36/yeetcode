@@ -1,10 +1,15 @@
 import type { NextConfig } from "next";
 
-// Set to "/yeetcode" by the Pages workflow; empty for local dev.
+// Two deployment targets from one codebase:
+//   STATIC_EXPORT=1  -> fully static bundle for GitHub Pages (no API, no DB)
+//   unset            -> server build for Vercel, including /api/runs
+const staticExport = process.env.STATIC_EXPORT === "1";
+
+// Set to "/yeetcode" by the Pages workflow; empty everywhere else.
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 const nextConfig: NextConfig = {
-  output: "export",
+  ...(staticExport ? { output: "export" as const } : {}),
   basePath: basePath || undefined,
   trailingSlash: true,
   images: { unoptimized: true },

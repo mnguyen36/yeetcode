@@ -39,8 +39,16 @@ jobs:
       - name: Verify exported data is present
         run: test -f public/data/meta.json || (echo "Missing public/data — run 'npm run export:static'" && exit 1)
 
+      # GitHub Pages is static hosting, so the DB-backed routes cannot ship
+      # here — and Next refuses to static-export a dynamic route handler at
+      # all. Dropping them is safe: this runs on a throwaway CI checkout, and
+      # lib/history.ts treats a missing API as "no run history".
+      - name: Remove server-only routes from the static build
+        run: rm -rf app/api
+
       - run: npm run build
         env:
+          STATIC_EXPORT: "1"
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
 
       - uses: actions/upload-pages-artifact@v3

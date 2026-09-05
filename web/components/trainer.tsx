@@ -18,8 +18,22 @@ import {
   type Meta,
   type Round,
 } from "@/lib/data";
+import { saveRun, type ProblemStats } from "@/lib/history";
 
 type Status = "loading" | "ready" | "typing" | "done";
+
+// Shared by the live readout and the run that gets persisted, so the number
+// shown on screen is always the number stored.
+function scoreRun(keystrokes: number, misses: number, elapsedMs: number) {
+  const minutes = elapsedMs / 60000;
+  return {
+    wpm: minutes > 0 ? Math.round(keystrokes / 5 / minutes) : 0,
+    accuracy:
+      keystrokes + misses > 0
+        ? Math.round((keystrokes / (keystrokes + misses)) * 100)
+        : 100,
+  };
+}
 
 type CaseUI = {
   status: "pending" | "running" | CaseResult["status"];
@@ -90,6 +104,8 @@ export default function Trainer() {
   const [description, setDescription] = useState<{ id: number; html: string } | null>(
     null
   );
+  // Tagged with its round, same as description: null simply means no backend.
+  const [stats, setStats] = useState<{ id: number; data: ProblemStats } | null>(null);
   const [mask, setMask] = useState<Uint8Array | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -219,6 +235,29 @@ export default function Trainer() {
       if (html) setDescription({ id: roundId, html });
     });
   }, [roundId]);
+
+  // Persist a finished round. Fires from an effect rather than the keydown
+  // handler so it sees settled state, and is keyed on endedAt so restarting
+  // the same problem records a new run while re-renders do not.
+  const savedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (status !== "done" || !round || startedAt === null || endedAt === null) return;
+    const token = `${round.id}|${round.language}|${endedAt}`;
+    if (savedRef.current === token) return;
+    savedRef.current = token;
+    const durationMs = Math.max(1, endedAt - startedAt);
+    saveRun({
+      problemId: round.id,
+      language: round.language,
+      difficulty: round.difficulty,
+      ...scoreRun(keystrokes, misses, durationMs),
+      keystrokes,
+      misses,
+      durationMs,
+    }).then((data) => {
+      if (data) setStats({ id: round.id, data });
+    });
+  }, [status, round, startedAt, endedAt, keystrokes, misses]);
 
   // boot: URL params win, then saved prefs
   const bootRef = useRef<{ lang: string; diff: string; problemId?: number } | null>(
@@ -475,12 +514,7 @@ export default function Trainer() {
 
   // --- derived stats -----------------------------------------------------------
   const elapsed = startedAt ? (endedAt ?? now) - startedAt : 0;
-  const minutes = elapsed / 60000;
-  const wpm = minutes > 0 ? Math.round(keystrokes / 5 / minutes) : 0;
-  const accuracy =
-    keystrokes + misses > 0
-      ? Math.round((keystrokes / (keystrokes + misses)) * 100)
-      : 100;
+  const { wpm, accuracy } = scoreRun(keystrokes, misses, elapsed);
   const progress = round ? Math.round((pos / round.code.length) * 100) : 0;
   const passCount = caseStates.filter(
     (c) => c.status === "pass" || c.status === "pass-unordered"
@@ -839,6 +873,20 @@ export default function Trainer() {
                     <div className="text-ink">{misses}</div>
                     <div className="text-xs text-ghost mt-0.5">misses</div>
                   </div>
+                  {stats?.id === round.id && stats.data.bestWpm !== null && (
+                    <div>
+                      <div
+                        className={
+                          wpm >= stats.data.bestWpm ? "text-ok" : "text-ink"
+                        }
+                      >
+                        {stats.data.bestWpm}
+                      </div>
+                      <div className="text-xs text-ghost mt-0.5">
+                        best of {stats.data.attempts}
+                      </div>
+                    </div>
+                  )}
                   {caseStates.length > 0 && canRun && (
                     <div>
                       <div
